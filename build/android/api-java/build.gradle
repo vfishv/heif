@@ -8,10 +8,10 @@ def javaApiJavaPath = file(javaApiSourcePath + "/java/").path
 def javaApiNativePath = file(javaApiSourcePath + "/cpp/").path
 
 android {
-    compileSdkVersion 26
+    compileSdkVersion 27
     defaultConfig {
 
-        minSdkVersion 24
+        minSdkVersion 15
         targetSdkVersion 26
         versionCode 1
         versionName "1.0"

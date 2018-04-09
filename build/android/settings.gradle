@@ -1,1 +1,1 @@
-include ':api-java'
+include ':api-java', ':heiftest'
