@@ -1,12 +1,30 @@
+/*
+ * This file is part of Nokia HEIF library
+ *
+ * Copyright (c) 2015-2019 Nokia Corporation and/or its subsidiary(-ies). All rights reserved.
+ *
+ * Contact: heif@nokia.com
+ *
+ * This software, including documentation, is protected by copyright controlled by Nokia Corporation and/ or its subsidiaries. All rights are reserved.
+ * Copying, including reproducing, storing, adapting or translating, any or all of this material requires the prior written consent of Nokia.
+ *
+ *
+ */
+
 package com.nokia.heif.example;
 
-import com.nokia.heif.ErrorHandler;
 import com.nokia.heif.Exception;
 import com.nokia.heif.GridImageItem;
 import com.nokia.heif.HEIF;
+import com.nokia.heif.HEVCDecoderConfig;
 import com.nokia.heif.HEVCImageItem;
+import com.nokia.heif.HEVCSample;
 import com.nokia.heif.ImageItem;
+import com.nokia.heif.ImageSequence;
 import com.nokia.heif.Size;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 class HEIFExample
 {
@@ -73,6 +91,73 @@ class HEIFExample
             // And we save the file
             heif.save(filename);
 
+        }
+        // All exceptions thrown by the HEIF library are of the same type
+        // Check the error code to see what happened
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    static void createImageSequence()
+    {
+        String outputFolderPath = "/heic_output/";
+        File outputFolder = new File(outputFolderPath);
+        if (!outputFolder.exists()) {
+            outputFolder.mkdir();
+        }
+
+        String filename = new String(outputFolderPath + "/imageSeq.heic");
+
+        // These should contain the encoded image data and the corresponding decoder config data
+        int width = 640;
+        int height = 480;
+        // Sizes are just placeholders
+
+        byte[] decoderConfigData = new byte[1024];  // fake data
+        byte[] imageData = new byte[50000]; // fake data
+
+        // !!!! this is fake data - initiate list of fake image sequence sample data, normally you would get this from video encoder.
+        List<byte[]> imageSequenceSampleDatas = new ArrayList<>();
+        imageSequenceSampleDatas.add(imageData);  // first image sequence sample is same as still image
+        for (int i = 0; i < 7; i++){
+            byte[] imageSequenceSampleData = new byte[50001]; // fake data
+            imageSequenceSampleDatas.add(imageSequenceSampleData);
+        }
+
+        int sampleDuration = 200;
+        int timescale = 1000;
+
+        // Create an instance of the HEIF library,
+        HEIF heif = new HEIF();
+        try
+        {
+            // This example assumes that the data is HEVC
+
+            ImageSequence imageSeq = new ImageSequence(heif, timescale);
+            HEVCDecoderConfig decoderConfig = new HEVCDecoderConfig(heif, decoderConfigData);
+            for (int i = 0; i < 8; ++i) {
+                HEVCSample imageSeqSample = new HEVCSample(heif, decoderConfig, imageSequenceSampleDatas.get(i), sampleDuration);
+                imageSeq.addSample(imageSeqSample);
+            }
+
+            // The constructor requires the HEIF instance, the size of the image,
+            // the decoder config data and the image data
+            HEVCImageItem imageItem = new HEVCImageItem(heif, new Size(width, height),
+                decoderConfig, imageData);
+            // Every HEIF image should have a primary image
+            heif.setPrimaryImage(imageItem);
+
+            // The brands need to be set
+            heif.setMajorBrand(HEIF.BRAND_MSF1);
+            heif.addCompatibleBrand(HEIF.BRAND_HEVC);
+            heif.addCompatibleBrand(HEIF.BRAND_HEIC);
+            heif.addCompatibleBrand(HEIF.BRAND_MIF1);
+            heif.addCompatibleBrand(HEIF.BRAND_ISO8);
+
+            // And we save the file
+            heif.save(filename);  // this will fail with fake data above - with real data it generates output file.
         }
         // All exceptions thrown by the HEIF library are of the same type
         // Check the error code to see what happened

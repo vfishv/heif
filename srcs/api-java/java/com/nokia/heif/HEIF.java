@@ -1,13 +1,12 @@
 /*
  * This file is part of Nokia HEIF library
  *
- * Copyright (c) 2015-2018 Nokia Corporation and/or its subsidiary(-ies). All rights reserved.
+ * Copyright (c) 2015-2019 Nokia Corporation and/or its subsidiary(-ies). All rights reserved.
  *
  * Contact: heif@nokia.com
  *
  * This software, including documentation, is protected by copyright controlled by Nokia Corporation and/ or its subsidiaries. All rights are reserved.
  * Copying, including reproducing, storing, adapting or translating, any or all of this material requires the prior written consent of Nokia.
- *
  *
  */
 
@@ -22,7 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class HEIF
+public class HEIF
 {
 
     private static final String TAG = "HEIF";
@@ -69,6 +68,21 @@ public final class HEIF
     public static final FourCC BRAND_MP41 = new FourCC("mp41", true);
 
 
+    public enum PreloadMode
+    {
+        LOAD_ALL_DATA(0),
+        LOAD_PREVIEW_DATA(1),
+        LOAD_ON_DEMAND(2);
+
+        private int value;
+
+        PreloadMode(int value)
+        {
+            this.value = value;
+        }
+    }
+
+
     /**
      * Creates a HEIF instance which can be used to read and write HEIF files
      */
@@ -89,6 +103,27 @@ public final class HEIF
         try
         {
             load(filename);
+        }
+        catch (Exception ex)
+        {
+            release();
+            throw ex;
+        }
+    }
+
+    /**
+     * Creates a HEIF instance from the given file
+     * @param filename Path to the file to be opened
+     * @param preloadMode In which mode the file should be loaded
+     * @throws Exception Thrown if the loading fails
+     */
+    public HEIF(String filename, PreloadMode preloadMode)
+            throws Exception
+    {
+        this();
+        try
+        {
+            load(filename, preloadMode);
         }
         catch (Exception ex)
         {
@@ -191,14 +226,40 @@ public final class HEIF
     /**
      * Loads a HEIF file. Can be called only once per instance.
      * @param filename Filename including the path
+     * @param preloadMode In which mode the file should be loaded
+     * @throws Exception
+     */
+    public void load(String filename, PreloadMode preloadMode)
+            throws Exception
+    {
+        checkState();
+        checkParameter(filename);
+        loadNative(filename, preloadMode.value);
+    }
+
+    /**
+     * Loads a HEIF file. Can be called only once per instance.
+     * @param filename Filename including the path
      * @throws Exception
      */
     public void load(String filename)
             throws Exception
     {
+        load(filename, PreloadMode.LOAD_ALL_DATA);
+    }
+
+    /**
+     * Loads a HEIF file from a stream
+     * @param inputStream The input stream for the file
+     * @param preloadMode In which mode the file should be loaded
+     * @throws Exception
+     */
+    public void load(InputStream inputStream, PreloadMode preloadMode)
+            throws Exception
+    {
         checkState();
-        checkParameter(filename);
-        loadNative(filename);
+        checkParameter(inputStream);
+        loadStreamNative(inputStream, preloadMode.value);
     }
 
     /**
@@ -209,9 +270,7 @@ public final class HEIF
     public void load(InputStream inputStream)
             throws Exception
     {
-        checkState();
-        checkParameter(inputStream);
-        loadStreamNative(inputStream);
+        load(inputStream, PreloadMode.LOAD_ALL_DATA);
     }
 
     /**
@@ -517,7 +576,7 @@ public final class HEIF
         ITEM_CLASSES = new HashMap<>();
         ITEM_CLASSES.put(FOURCC_HEVC.toString(), HEVCImageItem.class);
         ITEM_CLASSES.put(FOURCC_AVC.toString(), AVCImageItem.class);
-        ITEM_CLASSES.put(FOURCC_JPEG.toString(), CodedImageItem.class);
+        ITEM_CLASSES.put(FOURCC_JPEG.toString(), JPEGImageItem.class);
         ITEM_CLASSES.put(FOURCC_IDENTITY.toString(), IdentityImageItem.class);
         ITEM_CLASSES.put(FOURCC_OVERLAY.toString(), OverlayImageItem.class);
         ITEM_CLASSES.put(FOURCC_GRID.toString(), GridImageItem.class);
@@ -532,6 +591,7 @@ public final class HEIF
         DECODER_CONFIG_CLASSES.put(FOURCC_HEVC.toString(), HEVCDecoderConfig.class);
         DECODER_CONFIG_CLASSES.put(FOURCC_AVC.toString(), AVCDecoderConfig.class);
         DECODER_CONFIG_CLASSES.put(FOURCC_AAC.toString(), AACDecoderConfig.class);
+        DECODER_CONFIG_CLASSES.put(FOURCC_JPEG.toString(), JPEGDecoderConfig.class);
     }
 
     static private void resetSampleClasses()
@@ -650,7 +710,7 @@ public final class HEIF
         }
     }
 
-    private Base createItem(String fourCC, long nativeHandle)
+    protected Base createItem(String fourCC, long nativeHandle)
     {
         Class itemClass = ITEM_CLASSES.get(fourCC);
         if (itemClass != null)
@@ -663,7 +723,7 @@ public final class HEIF
         }
     }
 
-    private Base createItemProperty(String fourCC, long nativeHandle)
+    protected Base createItemProperty(String fourCC, long nativeHandle)
     {
         Class itemClass = ITEM_PROPERTY_CLASSES.get(fourCC);
         if (itemClass == null)
@@ -673,7 +733,7 @@ public final class HEIF
         return createBase(itemClass, nativeHandle);
     }
 
-    private Base createDecoderConfig(String fourCC, long nativeHandle)
+    protected Base createDecoderConfig(String fourCC, long nativeHandle)
     {
         Class itemClass = DECODER_CONFIG_CLASSES.get(fourCC);
         if (itemClass == null)
@@ -683,7 +743,7 @@ public final class HEIF
         return createBase(itemClass, nativeHandle);
     }
 
-    private Base createSample(String fourCC, long nativeHandle)
+    protected Base createSample(String fourCC, long nativeHandle)
     {
         Class itemClass = SAMPLE_CLASSES.get(fourCC);
         if (itemClass != null)
@@ -696,7 +756,7 @@ public final class HEIF
         }
     }
 
-    private Base createEntityGroup(String fourCC, long nativeHandle)
+    protected Base createEntityGroup(String fourCC, long nativeHandle)
     {
         Class itemClass = ENTITY_GROUP_CLASSES.get(fourCC);
         if (itemClass == null)
@@ -706,7 +766,7 @@ public final class HEIF
         return createBase(itemClass, nativeHandle);
     }
 
-    private Base createTrack(String fourCC, long nativeHandle)
+    protected Base createTrack(String fourCC, long nativeHandle)
     {
         Class itemClass = TRACK_CLASSES.get(fourCC);
         if (itemClass != null)
@@ -723,9 +783,9 @@ public final class HEIF
 
     private native void destroyInstanceNative();
 
-    private native void loadNative(String filename);
+    private native void loadNative(String filename, int preloadMode);
 
-    private native void loadStreamNative(InputStream stream);
+    private native void loadStreamNative(InputStream stream, int preloadMode);
 
     private native void saveNative(String filename);
 
